@@ -5,7 +5,7 @@ import { SessionConfig } from '@/types/config';
 import { SessionState, SessionStatus, createInitialState } from '@/types/state';
 import { ClarificationTranscript, ActivityEvent, createInitialTranscript, addUserMessage, addAssistantMessage } from '@/types/session';
 import { generateId } from '@/lib/utils/format';
-import { parseClarificationResponse, ClarificationResponse } from '@/lib/orchestrator/clarification';
+import { parseClarificationResponse, ClarificationResponse, CLARIFICATION_RESPONSE_SCHEMA } from '@/lib/orchestrator/clarification';
 
 interface UseSessionResult {
   // State
@@ -207,7 +207,7 @@ export function useSession(): UseSessionResult {
           model: currentConfig.specWriterModel,
           messages: initialTranscript.apiMessages,
           stream: true,
-          response_format: { type: 'json_object' },
+          response_format: CLARIFICATION_RESPONSE_SCHEMA,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -299,7 +299,7 @@ export function useSession(): UseSessionResult {
           model: config.specWriterModel,
           messages: withUser.apiMessages,
           stream: true,
-          response_format: { type: 'json_object' },
+          response_format: CLARIFICATION_RESPONSE_SCHEMA,
         }),
         signal: abortControllerRef.current.signal,
       });

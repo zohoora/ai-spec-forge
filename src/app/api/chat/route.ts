@@ -2,15 +2,13 @@
 
 import { NextRequest } from 'next/server';
 import { createOpenRouterClient } from '@/lib/openrouter/client';
-import { ChatMessage } from '@/lib/openrouter/types';
+import { ChatMessage, JsonSchema } from '@/lib/openrouter/types';
 
 interface ChatRequest {
   model: string;
   messages: ChatMessage[];
   stream?: boolean;
-  response_format?: {
-    type: 'json_object' | 'text';
-  };
+  response_format?: JsonSchema;
 }
 
 export async function POST(request: NextRequest) {
@@ -99,6 +97,7 @@ export async function POST(request: NextRequest) {
           controller.close();
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Streaming failed';
+          console.error('[/api/chat] Stream error:', message, error);
 
           controller.enqueue(
             encoder.encode(
@@ -124,6 +123,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Chat request failed';
+    console.error('[/api/chat] Error:', message, error);
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

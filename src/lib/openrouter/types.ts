@@ -5,15 +5,27 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface JsonSchema {
+  type: 'json_schema';
+  json_schema: {
+    name: string;
+    strict: boolean;
+    schema: {
+      type: string;
+      properties: Record<string, unknown>;
+      required: string[];
+      additionalProperties: boolean;
+    };
+  };
+}
+
 export interface ChatRequest {
   model: string;
   messages: ChatMessage[];
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
-  response_format?: {
-    type: 'json_object' | 'text';
-  };
+  response_format?: JsonSchema;
 }
 
 export interface ChatChoice {

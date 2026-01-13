@@ -2,7 +2,37 @@
 
 import { ClarificationTranscript, createInitialTranscript, addUserMessage, addAssistantMessage } from '@/types/session';
 import { OpenRouterClient } from '@/lib/openrouter/client';
-import { ChatMessage } from '@/lib/openrouter/types';
+import { ChatMessage, JsonSchema } from '@/lib/openrouter/types';
+
+/**
+ * JSON Schema for clarification responses (OpenRouter format)
+ */
+export const CLARIFICATION_RESPONSE_SCHEMA: JsonSchema = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'clarification_response',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        ready: {
+          type: 'boolean',
+          description: 'Whether enough information has been gathered to write the spec',
+        },
+        message: {
+          type: 'string',
+          description: 'The message to display to the user (question or summary)',
+        },
+        notes: {
+          type: 'string',
+          description: 'Optional final notes when ready is true',
+        },
+      },
+      required: ['ready', 'message'],
+      additionalProperties: false,
+    },
+  },
+};
 
 /**
  * Structured response from the clarification LLM
@@ -97,7 +127,7 @@ export async function startClarification(
   const rawResponse = await client.chat({
     model,
     messages: transcript.apiMessages as ChatMessage[],
-    response_format: { type: 'json_object' },
+    response_format: CLARIFICATION_RESPONSE_SCHEMA,
   });
 
   // Parse the JSON response
@@ -132,7 +162,7 @@ export async function* startClarificationStream(
   for await (const chunk of client.chatStream({
     model,
     messages: transcript.apiMessages as ChatMessage[],
-    response_format: { type: 'json_object' },
+    response_format: CLARIFICATION_RESPONSE_SCHEMA,
   })) {
     fullResponse += chunk;
     yield { type: 'token', content: chunk };
@@ -168,7 +198,7 @@ export async function continueClarification(
   const rawResponse = await client.chat({
     model,
     messages: withUser.apiMessages as ChatMessage[],
-    response_format: { type: 'json_object' },
+    response_format: CLARIFICATION_RESPONSE_SCHEMA,
   });
 
   // Parse the JSON response
@@ -204,7 +234,7 @@ export async function* continueClarificationStream(
   for await (const chunk of client.chatStream({
     model,
     messages: withUser.apiMessages as ChatMessage[],
-    response_format: { type: 'json_object' },
+    response_format: CLARIFICATION_RESPONSE_SCHEMA,
   })) {
     fullResponse += chunk;
     yield { type: 'token', content: chunk };
