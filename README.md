@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Spec Forge
+
+An iterative specification generator that uses multiple AI models to create, review, and refine software specifications.
+
+## Features
+
+- **Multi-Model Architecture**: Uses one "Spec Writer" model to generate specifications and 1-5 "Consultant" models to review and provide feedback
+- **Interactive Clarification**: AI asks clarifying questions about your app idea before writing the spec
+- **Import & Refine Existing Specs**: Import an existing specification to iterate and improve it
+- **Iterative Feedback Rounds**: Configurable number of review cycles (1-10 rounds)
+- **Real-time Streaming**: Watch the AI think and write in real-time
+- **Session Persistence**: All artifacts saved locally - resume interrupted sessions
+- **Customizable Prompts**: Edit any of the system prompts to tune behavior
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- OpenRouter API key (get one at [openrouter.ai](https://openrouter.ai))
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/zohoora/ai-spec-forge.git
+cd ai-spec-forge
+
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Enter your OpenRouter API key (stored locally, never logged)
+2. **Optional**: Import an existing spec to refine it
+3. Describe your app idea (or refinement goals if importing)
+4. Select a Spec Writer model (e.g., `anthropic/claude-3.5-sonnet`)
+5. Select 1-5 Consultant models for review
+6. Set the number of feedback rounds (default: 3)
+7. Choose an output directory for saved files
+8. Click "Start Session"
 
-## Learn More
+## Workflow
 
-To learn more about Next.js, take a look at the following resources:
+### New Specification
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+App Idea -> Clarification Q&A -> Requirements Snapshot -> Draft Spec -> Feedback Rounds -> Final Spec
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Refine Existing Specification
 
-## Deploy on Vercel
+```
+Import Spec -> Refinement Q&A -> Updated Requirements -> Revised Spec -> Feedback Rounds -> Final Spec
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Output Files
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Each session creates a timestamped directory containing:
+
+```
+session-directory/
+├── config.json                    # Session configuration
+├── state.json                     # Current session state
+├── clarification-transcript.json  # Full Q&A history
+├── requirements-snapshot.md       # Extracted requirements
+├── session-log.md                 # Event timeline
+├── spec-v1.md                     # Initial draft
+├── spec-v2.md                     # After round 1
+├── spec-v{N}.md                   # After round N-1
+├── spec-final.md                  # Final version
+└── feedback/
+    ├── round-1.md                 # Aggregated feedback
+    ├── round-1-model-name.md      # Individual responses
+    └── ...
+```
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **AI Provider**: OpenRouter (access to 400+ models)
+
+## Key Features Explained
+
+### Import Existing Spec
+
+Click "Import Existing Spec (Optional)" to:
+- Upload a `.md` or `.txt` file
+- Or paste spec content directly
+
+When a spec is imported:
+- The "App Idea" field becomes "Refinement Goals"
+- The AI asks about what changes you want to make
+- Uses a specialized prompt for spec refinement
+
+### Customizable Prompts
+
+Expand "Edit Prompts" to customize:
+- **Clarification Prompt**: How the AI asks about your app idea
+- **Refinement Prompt**: How the AI asks about changes to existing specs
+- **Snapshot Prompt**: How requirements are extracted
+- **Drafting Prompt**: How the spec is written
+- **Revision Prompt**: How feedback is incorporated
+- **Consultant Prompt**: How reviewers analyze the spec
+
+## Development
+
+```bash
+# Run development server
+npm run dev
+
+# Type check
+npx tsc --noEmit
+
+# Lint
+npm run lint
+
+# Build for production
+npm run build
+```
+
+## License
+
+MIT

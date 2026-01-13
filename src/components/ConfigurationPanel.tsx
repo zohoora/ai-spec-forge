@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Input, Textarea, Card, CardHeader, CardTitle, CardContent } from './ui';
 import { ModelSelector } from './ModelSelector';
 import { PromptEditor } from './PromptEditor';
+import { SpecImporter } from './SpecImporter';
 import { SessionConfig, validateConfig, ValidationError } from '@/types/config';
 import { Prompts } from '@/types/config';
 import { ModelInfo } from '@/types/session';
@@ -27,11 +28,15 @@ export function ConfigurationPanel({
   onApiKeyChange,
 }: ConfigurationPanelProps) {
   const [appIdea, setAppIdea] = useState('');
+  const [existingSpec, setExistingSpec] = useState<string | null>(null);
   const [specWriterModel, setSpecWriterModel] = useState('');
   const [consultantModels, setConsultantModels] = useState<string[]>([]);
   const [numberOfRounds, setNumberOfRounds] = useState(3);
   const [outputDirectory, setOutputDirectory] = useState('');
   const [prompts, setPrompts] = useState<Prompts>(getDefaultPrompts());
+
+  // Determine if we're in refinement mode
+  const isRefinementMode = existingSpec && existingSpec.trim().length > 0;
 
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -87,6 +92,7 @@ export function ConfigurationPanel({
 
     const config: SessionConfig = {
       appIdea,
+      existingSpec: existingSpec || null,
       specWriterModel,
       consultantModels,
       numberOfRounds,
@@ -133,12 +139,24 @@ export function ConfigurationPanel({
             disabled={disabled}
           />
 
-          {/* App Idea */}
+          {/* Import Existing Spec */}
+          <SpecImporter
+            value={existingSpec}
+            onChange={setExistingSpec}
+            disabled={disabled}
+            error={getFieldError('existingSpec')}
+          />
+
+          {/* App Idea / Refinement Goals */}
           <Textarea
-            label="App Idea"
+            label={isRefinementMode ? 'Refinement Goals' : 'App Idea'}
             value={appIdea}
             onChange={(e) => setAppIdea(e.target.value)}
-            placeholder="Describe your app idea in detail. What problem does it solve? Who is it for? What are the key features?"
+            placeholder={
+              isRefinementMode
+                ? 'What changes or improvements do you want to make to this spec? What new features should be added? What should be removed or modified?'
+                : 'Describe your app idea in detail. What problem does it solve? Who is it for? What are the key features?'
+            }
             rows={6}
             error={getFieldError('appIdea')}
             disabled={disabled}

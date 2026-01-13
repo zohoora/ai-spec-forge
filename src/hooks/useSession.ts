@@ -184,11 +184,19 @@ export function useSession(): UseSessionResult {
     setError(null);
     setIsReady(false);
     updateState({ status: 'clarifying' });
-    addActivity('system', 'Starting clarification phase');
+
+    // Detect refinement mode and select appropriate prompt
+    const isRefinementMode = !!currentConfig.existingSpec;
+    const clarifyPrompt = isRefinementMode
+      ? currentConfig.prompts.specWriterClarifyRefinement
+      : currentConfig.prompts.specWriterClarify;
+
+    addActivity('system', isRefinementMode ? 'Starting spec refinement phase' : 'Starting clarification phase');
 
     const initialTranscript = createInitialTranscript(
-      currentConfig.prompts.specWriterClarify,
-      currentConfig.appIdea
+      clarifyPrompt,
+      currentConfig.appIdea,
+      currentConfig.existingSpec
     );
 
     abortControllerRef.current = new AbortController();

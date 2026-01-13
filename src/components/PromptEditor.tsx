@@ -16,6 +16,10 @@ const promptLabels: Record<keyof Prompts, { label: string; description: string }
     label: 'Clarification Prompt',
     description: 'Used during the clarification phase to ask questions about the app idea',
   },
+  specWriterClarifyRefinement: {
+    label: 'Refinement Prompt',
+    description: 'Used when refining an existing spec to ask about desired changes',
+  },
   specWriterSnapshot: {
     label: 'Snapshot Prompt',
     description: 'Used to generate the requirements snapshot',

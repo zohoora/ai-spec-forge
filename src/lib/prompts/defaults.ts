@@ -35,6 +35,38 @@ When you have gathered enough information to write the spec, respond with:
 Always respond with valid JSON. The "message" field contains what the user will see.`;
 
 /**
+ * Spec writer prompt for clarification when refining an existing spec
+ */
+export const SPEC_WRITER_CLARIFY_REFINEMENT = `You are an expert product analyst and specification reviewer.
+
+The user has provided an existing specification that they want to refine or improve.
+
+Ask concise clarifying questions to understand:
+- What aspects of the current spec need improvement?
+- Are there new features to add or existing ones to remove?
+- Have requirements changed since the original spec?
+- Are there technical constraints or preferences that have changed?
+- What problems or gaps have been identified in the current spec?
+- Is the scope expanding, contracting, or pivoting?
+
+Ask only what you need to proceed with the refinement.
+
+IMPORTANT: You must respond in JSON format with this exact structure:
+{
+  "ready": false,
+  "message": "Your question or response to the user"
+}
+
+When you have gathered enough information to refine the spec, respond with:
+{
+  "ready": true,
+  "message": "Summary of the refinements you will make",
+  "notes": "Any final notes or observations (optional)"
+}
+
+Always respond with valid JSON. The "message" field contains what the user will see.`;
+
+/**
  * Spec writer prompt for requirements snapshot (section 9.2)
  */
 export const SPEC_WRITER_SNAPSHOT = `You are an expert requirements analyst.
@@ -114,6 +146,7 @@ Be specific and reference section names where possible.`;
 export function getDefaultPrompts(): Prompts {
   return {
     specWriterClarify: SPEC_WRITER_CLARIFY,
+    specWriterClarifyRefinement: SPEC_WRITER_CLARIFY_REFINEMENT,
     specWriterSnapshot: SPEC_WRITER_SNAPSHOT,
     specWriterDraft: SPEC_WRITER_DRAFT,
     specWriterRevise: SPEC_WRITER_REVISE,
@@ -128,6 +161,7 @@ export function validatePrompts(prompts: Partial<Prompts>): string[] {
   const errors: string[] = [];
   const requiredFields: (keyof Prompts)[] = [
     'specWriterClarify',
+    'specWriterClarifyRefinement',
     'specWriterSnapshot',
     'specWriterDraft',
     'specWriterRevise',
@@ -150,6 +184,7 @@ export function mergeWithDefaults(prompts: Partial<Prompts>): Prompts {
   const defaults = getDefaultPrompts();
   return {
     specWriterClarify: prompts.specWriterClarify?.trim() || defaults.specWriterClarify,
+    specWriterClarifyRefinement: prompts.specWriterClarifyRefinement?.trim() || defaults.specWriterClarifyRefinement,
     specWriterSnapshot: prompts.specWriterSnapshot?.trim() || defaults.specWriterSnapshot,
     specWriterDraft: prompts.specWriterDraft?.trim() || defaults.specWriterDraft,
     specWriterRevise: prompts.specWriterRevise?.trim() || defaults.specWriterRevise,

@@ -16,12 +16,21 @@ export interface ClarificationTranscript {
   apiMessages: ApiMessage[];
 }
 
-export function createInitialTranscript(systemPrompt: string, appIdea: string): ClarificationTranscript {
+export function createInitialTranscript(
+  systemPrompt: string,
+  appIdea: string,
+  existingSpec?: string | null
+): ClarificationTranscript {
+  // Build user content based on whether we're refining an existing spec
+  const userContent = existingSpec
+    ? `Existing Specification to Refine:\n\n${existingSpec}\n\n---\n\nRefinement Goals:\n\n${appIdea || '(No specific goals provided - please ask what improvements are needed)'}`
+    : `App Idea:\n\n${appIdea}`;
+
   return {
     displayMessages: [],
     apiMessages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `App Idea:\n\n${appIdea}` },
+      { role: 'user', content: userContent },
     ],
   };
 }

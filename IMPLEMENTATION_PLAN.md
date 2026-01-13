@@ -813,16 +813,17 @@ Path: spec-v1.md
 
 ## Acceptance Criteria Checklist
 
-- [ ] User can configure models, rounds, and output directory
-- [ ] Preflight check aborts on unreachable models
-- [ ] Clarification phase is interactive and persists transcript
-- [ ] Requirements snapshot is generated and saved
-- [ ] spec-v1.md is produced after clarification
-- [ ] R feedback rounds run with parallel consultant calls
-- [ ] Final spec is written to spec-final.md
-- [ ] All artifacts saved (versions, feedback, logs, config, transcript, state)
+- [x] User can configure models, rounds, and output directory
+- [x] Preflight check aborts on unreachable models
+- [x] Clarification phase is interactive and persists transcript
+- [x] Requirements snapshot is generated and saved
+- [x] spec-v1.md is produced after clarification
+- [x] R feedback rounds run with parallel consultant calls
+- [x] Final spec is written to spec-final.md
+- [x] All artifacts saved (versions, feedback, logs, config, transcript, state)
 - [ ] Resume works for mid-round interruption
 - [ ] Partial responses are discarded on resume
+- [x] **Import existing spec for refinement** (added post-initial implementation)
 
 ---
 
@@ -839,4 +840,108 @@ Path: spec-v1.md
 - Hooks: 3 files
 - Main app: 3 files
 
-**Total: ~48 files**
+**Total: ~49 files** (includes SpecImporter.tsx)
+
+---
+
+## Feature Addition: Import Existing Spec for Refinement
+
+### Overview
+
+This feature allows users to import an existing specification document and iterate on it, rather than creating a new spec from scratch. The clarification phase asks about desired changes/improvements instead of asking about a new app idea.
+
+### Implementation Details
+
+#### Type Changes (`src/types/config.ts`)
+
+Added `existingSpec: string | null` to `SessionConfig`:
+
+```typescript
+export interface SessionConfig {
+  appIdea: string;
+  existingSpec: string | null;  // NEW: Imported spec for refinement
+  specWriterModel: string;
+  consultantModels: string[];
+  numberOfRounds: number;
+  prompts: Prompts;
+  outputDirectory: string;
+  createdAt: string;
+}
+```
+
+Updated `Prompts` interface:
+
+```typescript
+export interface Prompts {
+  specWriterClarify: string;
+  specWriterClarifyRefinement: string;  // NEW: For refining existing specs
+  specWriterSnapshot: string;
+  specWriterDraft: string;
+  specWriterRevise: string;
+  consultant: string;
+}
+```
+
+#### New Component (`src/components/SpecImporter.tsx`)
+
+A collapsible component that provides:
+- Toggle between "Upload File" and "Paste Content" modes
+- File picker accepting `.md` and `.txt` files (max 1MB)
+- Textarea for pasting spec content directly
+- Preview of imported content with character count
+- Clear button to remove imported spec
+- Validation (min 100 chars, max 500k chars)
+
+#### Refinement Prompt (`src/lib/prompts/defaults.ts`)
+
+Added `SPEC_WRITER_CLARIFY_REFINEMENT` prompt that asks:
+- What aspects of the current spec need improvement?
+- Are there new features to add or existing ones to remove?
+- Have requirements changed since the original spec?
+- Are there technical constraints that have changed?
+- What problems or gaps have been identified?
+
+#### Transcript Creation (`src/types/session.ts`)
+
+Updated `createInitialTranscript()` to accept optional `existingSpec`:
+
+```typescript
+export function createInitialTranscript(
+  systemPrompt: string,
+  appIdea: string,
+  existingSpec?: string | null
+): ClarificationTranscript
+```
+
+When `existingSpec` is provided, the user message format changes to:
+```
+Existing Specification to Refine:
+
+{existingSpec}
+
+---
+
+Refinement Goals:
+
+{appIdea}
+```
+
+#### UI Behavior
+
+- When spec is imported: "App Idea" label changes to "Refinement Goals"
+- Placeholder text changes to prompt for desired changes
+- PromptEditor shows new "Refinement Prompt" tab
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/types/config.ts` | Added `existingSpec` field, updated validation |
+| `src/lib/prompts/defaults.ts` | Added refinement prompt |
+| `src/components/SpecImporter.tsx` | **NEW** - file picker + paste UI |
+| `src/components/ConfigurationPanel.tsx` | Integrated SpecImporter, dynamic labels |
+| `src/components/PromptEditor.tsx` | Added refinement prompt tab |
+| `src/components/index.ts` | Export SpecImporter |
+| `src/types/session.ts` | Updated `createInitialTranscript()` |
+| `src/hooks/useSession.ts` | Detect refinement mode, select prompt |
+| `src/app/api/session/route.ts` | Accept existingSpec in request |

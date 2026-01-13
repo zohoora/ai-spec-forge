@@ -9,6 +9,7 @@ import { getDefaultPrompts, mergeWithDefaults } from '@/lib/prompts/defaults';
 
 interface CreateSessionRequest {
   appIdea: string;
+  existingSpec?: string | null;
   specWriterModel: string;
   consultantModels: string[];
   numberOfRounds: number;
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     // Build full config
     const config: SessionConfig = {
       appIdea: body.appIdea,
+      existingSpec: body.existingSpec || null,
       specWriterModel: body.specWriterModel,
       consultantModels: body.consultantModels,
       numberOfRounds: body.numberOfRounds,

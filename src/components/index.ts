@@ -3,6 +3,7 @@
 export * from './ui';
 export { ModelSelector } from './ModelSelector';
 export { PromptEditor } from './PromptEditor';
+export { SpecImporter } from './SpecImporter';
 export { ActivityStream, StreamingContent } from './ActivityStream';
 export { ClarificationChat } from './ClarificationChat';
 export { ProgressIndicator } from './ProgressIndicator';

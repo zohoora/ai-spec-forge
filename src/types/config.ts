@@ -2,6 +2,7 @@
 
 export interface Prompts {
   specWriterClarify: string;
+  specWriterClarifyRefinement: string;  // For refining existing specs
   specWriterSnapshot: string;
   specWriterDraft: string;
   specWriterRevise: string;
@@ -10,6 +11,7 @@ export interface Prompts {
 
 export interface SessionConfig {
   appIdea: string;
+  existingSpec: string | null;  // Imported spec for refinement mode
   specWriterModel: string;
   consultantModels: string[];
   numberOfRounds: number;
@@ -26,8 +28,22 @@ export interface ValidationError {
 export function validateConfig(config: Partial<SessionConfig>): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (!config.appIdea?.trim()) {
+  const hasExistingSpec = config.existingSpec && config.existingSpec.trim().length > 0;
+
+  // appIdea is required for new specs, optional description for refinements
+  if (!hasExistingSpec && !config.appIdea?.trim()) {
     errors.push({ field: 'appIdea', message: 'App idea is required' });
+  }
+
+  // Validate existingSpec if provided
+  if (hasExistingSpec) {
+    const specLength = config.existingSpec!.trim().length;
+    if (specLength < 100) {
+      errors.push({ field: 'existingSpec', message: 'Imported spec is too short (minimum 100 characters)' });
+    }
+    if (specLength > 500000) {
+      errors.push({ field: 'existingSpec', message: 'Imported spec is too long (maximum 500,000 characters)' });
+    }
   }
 
   if (!config.specWriterModel?.trim()) {
@@ -54,6 +70,7 @@ export function validateConfig(config: Partial<SessionConfig>): ValidationError[
 export function createDefaultConfig(): Partial<SessionConfig> {
   return {
     appIdea: '',
+    existingSpec: null,
     specWriterModel: '',
     consultantModels: [],
     numberOfRounds: 3,
