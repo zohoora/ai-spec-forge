@@ -5,56 +5,79 @@ import { OpenRouterClient } from '@/lib/openrouter/client';
 import { ChatMessage } from '@/lib/openrouter/types';
 
 /**
- * Detect if the spec writer has signaled readiness to draft
- * Per spec FR-15: tolerant match (case-insensitive, whitespace, markdown)
+ * Structured response from the clarification LLM
  */
-export function isReadyToDraft(content: string): boolean {
-  // Remove markdown emphasis (* and _)
-  const cleaned = content.replace(/\*+/g, '').replace(/_+/g, '');
-
-  // Check for the signal on its own line
-  // Case-insensitive, ignoring surrounding whitespace
-  const lines = cleaned.split('\n');
-
-  for (const line of lines) {
-    const trimmed = line.trim().toLowerCase();
-    if (trimmed === 'ready to write spec') {
-      return true;
-    }
-  }
-
-  return false;
+export interface ClarificationResponse {
+  ready: boolean;
+  message: string;
+  notes?: string;
 }
 
 /**
- * Extract any notes after the ready signal
+ * Strip markdown code blocks from LLM response
  */
-export function extractPostReadyNotes(content: string): string | null {
-  const cleaned = content.replace(/\*+/g, '').replace(/_+/g, '');
-  const lines = cleaned.split('\n');
+function stripMarkdownCodeBlocks(content: string): string {
+  let cleaned = content.trim();
 
-  let foundSignal = false;
-  const notes: string[] = [];
+  // Remove ```json or ``` at the start
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '');
 
-  for (const line of lines) {
-    if (foundSignal) {
-      notes.push(line);
-    } else {
-      const trimmed = line.trim().toLowerCase();
-      if (trimmed === 'ready to write spec') {
-        foundSignal = true;
-      }
+  // Remove ``` at the end
+  cleaned = cleaned.replace(/\n?```\s*$/i, '');
+
+  return cleaned.trim();
+}
+
+/**
+ * Parse the JSON response from the LLM
+ * Returns the parsed response or throws if invalid
+ */
+export function parseClarificationResponse(content: string): ClarificationResponse {
+  try {
+    // Strip markdown code blocks if present
+    const cleanedContent = stripMarkdownCodeBlocks(content);
+    const parsed = JSON.parse(cleanedContent);
+
+    // Validate required fields
+    if (typeof parsed.ready !== 'boolean') {
+      throw new Error('Missing or invalid "ready" field (must be boolean)');
     }
-  }
+    if (typeof parsed.message !== 'string' || !parsed.message.trim()) {
+      throw new Error('Missing or invalid "message" field (must be non-empty string)');
+    }
 
-  const result = notes.join('\n').trim();
-  return result || null;
+    return {
+      ready: parsed.ready,
+      message: parsed.message.trim(),
+      notes: typeof parsed.notes === 'string' ? parsed.notes.trim() || undefined : undefined,
+    };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON response from LLM: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Check if the parsed response indicates readiness to draft
+ */
+export function isReadyToDraft(response: ClarificationResponse): boolean {
+  return response.ready === true;
+}
+
+/**
+ * Extract notes from the parsed response
+ */
+export function extractPostReadyNotes(response: ClarificationResponse): string | null {
+  return response.notes || null;
 }
 
 export interface ClarificationResult {
   transcript: ClarificationTranscript;
   isReady: boolean;
   lastResponse: string;
+  parsedResponse: ClarificationResponse;
 }
 
 /**
@@ -66,55 +89,66 @@ export async function startClarification(
   model: string,
   systemPrompt: string,
   appIdea: string
-): Promise<{ transcript: ClarificationTranscript; response: string }> {
+): Promise<{ transcript: ClarificationTranscript; response: string; parsedResponse: ClarificationResponse }> {
   // Create initial transcript with system prompt and app idea
   const transcript = createInitialTranscript(systemPrompt, appIdea);
 
-  // Get initial response from spec writer
-  const response = await client.chat({
+  // Get initial response from spec writer with JSON format
+  const rawResponse = await client.chat({
     model,
     messages: transcript.apiMessages as ChatMessage[],
+    response_format: { type: 'json_object' },
   });
 
-  // Add assistant response to transcript
-  const updatedTranscript = addAssistantMessage(transcript, response);
+  // Parse the JSON response
+  const parsedResponse = parseClarificationResponse(rawResponse);
+
+  // Add the message (not raw JSON) to transcript for display
+  const updatedTranscript = addAssistantMessage(transcript, parsedResponse.message);
 
   return {
     transcript: updatedTranscript,
-    response,
+    response: parsedResponse.message,
+    parsedResponse,
   };
 }
 
 /**
  * Start clarification with streaming
+ * Note: We stream the raw JSON, then parse at the end to extract the message
  */
 export async function* startClarificationStream(
   client: OpenRouterClient,
   model: string,
   systemPrompt: string,
   appIdea: string
-): AsyncGenerator<{ type: 'token' | 'complete'; content: string; transcript?: ClarificationTranscript }, void, unknown> {
+): AsyncGenerator<{ type: 'token' | 'complete'; content: string; transcript?: ClarificationTranscript; parsedResponse?: ClarificationResponse }, void, unknown> {
   // Create initial transcript
   const transcript = createInitialTranscript(systemPrompt, appIdea);
 
   let fullResponse = '';
 
-  // Stream response
+  // Stream response with JSON format
   for await (const chunk of client.chatStream({
     model,
     messages: transcript.apiMessages as ChatMessage[],
+    response_format: { type: 'json_object' },
   })) {
     fullResponse += chunk;
     yield { type: 'token', content: chunk };
   }
 
-  // Add complete response to transcript
-  const updatedTranscript = addAssistantMessage(transcript, fullResponse);
+  // Parse the complete JSON response
+  const parsedResponse = parseClarificationResponse(fullResponse);
+
+  // Add the message (not raw JSON) to transcript for display
+  const updatedTranscript = addAssistantMessage(transcript, parsedResponse.message);
 
   yield {
     type: 'complete',
-    content: fullResponse,
+    content: parsedResponse.message,
     transcript: updatedTranscript,
+    parsedResponse,
   };
 }
 
@@ -130,53 +164,64 @@ export async function continueClarification(
   // Add user response to transcript
   const withUser = addUserMessage(transcript, userResponse);
 
-  // Get next response from spec writer
-  const response = await client.chat({
+  // Get next response from spec writer with JSON format
+  const rawResponse = await client.chat({
     model,
     messages: withUser.apiMessages as ChatMessage[],
+    response_format: { type: 'json_object' },
   });
 
-  // Add assistant response
-  const updatedTranscript = addAssistantMessage(withUser, response);
+  // Parse the JSON response
+  const parsedResponse = parseClarificationResponse(rawResponse);
+
+  // Add the message (not raw JSON) to transcript
+  const updatedTranscript = addAssistantMessage(withUser, parsedResponse.message);
 
   return {
     transcript: updatedTranscript,
-    isReady: isReadyToDraft(response),
-    lastResponse: response,
+    isReady: isReadyToDraft(parsedResponse),
+    lastResponse: parsedResponse.message,
+    parsedResponse,
   };
 }
 
 /**
  * Continue clarification with streaming
+ * Note: We stream the raw JSON, then parse at the end to extract the message
  */
 export async function* continueClarificationStream(
   client: OpenRouterClient,
   model: string,
   transcript: ClarificationTranscript,
   userResponse: string
-): AsyncGenerator<{ type: 'token' | 'complete'; content: string; transcript?: ClarificationTranscript; isReady?: boolean }, void, unknown> {
+): AsyncGenerator<{ type: 'token' | 'complete'; content: string; transcript?: ClarificationTranscript; isReady?: boolean; parsedResponse?: ClarificationResponse }, void, unknown> {
   // Add user response to transcript
   const withUser = addUserMessage(transcript, userResponse);
 
   let fullResponse = '';
 
-  // Stream response
+  // Stream response with JSON format
   for await (const chunk of client.chatStream({
     model,
     messages: withUser.apiMessages as ChatMessage[],
+    response_format: { type: 'json_object' },
   })) {
     fullResponse += chunk;
     yield { type: 'token', content: chunk };
   }
 
-  // Add complete response to transcript
-  const updatedTranscript = addAssistantMessage(withUser, fullResponse);
+  // Parse the complete JSON response
+  const parsedResponse = parseClarificationResponse(fullResponse);
+
+  // Add the message (not raw JSON) to transcript
+  const updatedTranscript = addAssistantMessage(withUser, parsedResponse.message);
 
   yield {
     type: 'complete',
-    content: fullResponse,
+    content: parsedResponse.message,
     transcript: updatedTranscript,
-    isReady: isReadyToDraft(fullResponse),
+    isReady: isReadyToDraft(parsedResponse),
+    parsedResponse,
   };
 }
 

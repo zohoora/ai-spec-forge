@@ -21,6 +21,11 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateSessionRequest = await request.json();
 
+    // Expand tilde in output directory (client-side can't access HOME)
+    const expandedOutputDir = body.outputDirectory.startsWith('~')
+      ? body.outputDirectory.replace('~', process.env.HOME || '')
+      : body.outputDirectory;
+
     // Build full config
     const config: SessionConfig = {
       appIdea: body.appIdea,
@@ -28,7 +33,7 @@ export async function POST(request: NextRequest) {
       consultantModels: body.consultantModels,
       numberOfRounds: body.numberOfRounds,
       prompts: mergeWithDefaults(body.prompts || {}),
-      outputDirectory: body.outputDirectory,
+      outputDirectory: expandedOutputDir,
       createdAt: new Date().toISOString(),
     };
 

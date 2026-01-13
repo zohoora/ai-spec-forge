@@ -89,7 +89,7 @@ export class OpenRouterClient {
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: 'Hi' }],
-          max_tokens: 1,
+          max_tokens: 50,
         }),
         signal: controller.signal,
       });
@@ -97,16 +97,23 @@ export class OpenRouterClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const error = await response.json();
-        if (isOpenRouterError(error)) {
-          throw new Error(error.error.message);
+        const errorText = await response.text();
+        console.error(`Reachability test failed for model ${model}:`, errorText);
+        try {
+          const error = JSON.parse(errorText);
+          if (isOpenRouterError(error)) {
+            throw new Error(error.error.message);
+          }
+        } catch {
+          // Not JSON
         }
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
       }
 
       return true;
     } catch (error) {
       clearTimeout(timeoutId);
+      console.error(`Reachability test error for model ${model}:`, error);
       if (error instanceof Error) {
         throw error;
       }
@@ -185,11 +192,17 @@ export class OpenRouterClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const error = await response.json();
-        if (isOpenRouterError(error)) {
-          throw new Error(`OpenRouter API error: ${error.error.message}`);
+        const errorText = await response.text();
+        console.error(`OpenRouter streaming error for model ${request.model}:`, errorText);
+        try {
+          const error = JSON.parse(errorText);
+          if (isOpenRouterError(error)) {
+            throw new Error(`OpenRouter API error: ${error.error.message}`);
+          }
+        } catch {
+          // Not JSON
         }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
       }
 
       if (!response.body) {

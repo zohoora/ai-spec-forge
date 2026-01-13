@@ -91,7 +91,7 @@ export function ConfigurationPanel({
       consultantModels,
       numberOfRounds,
       prompts,
-      outputDirectory: outputDirectory.replace('~', process.env.HOME || ''),
+      outputDirectory, // Server will expand tilde
       createdAt: new Date().toISOString(),
     };
 

@@ -5,6 +5,7 @@ import { SessionConfig } from '@/types/config';
 import { SessionState, SessionStatus, createInitialState } from '@/types/state';
 import { ClarificationTranscript, ActivityEvent, createInitialTranscript, addUserMessage, addAssistantMessage } from '@/types/session';
 import { generateId } from '@/lib/utils/format';
+import { parseClarificationResponse, ClarificationResponse } from '@/lib/orchestrator/clarification';
 
 interface UseSessionResult {
   // State
@@ -14,6 +15,7 @@ interface UseSessionResult {
   transcript: ClarificationTranscript | null;
   streamingContent: string;
   isStreaming: boolean;
+  isReady: boolean;
   activities: ActivityEvent[];
   startTime: number | null;
 
@@ -41,6 +43,7 @@ export function useSession(): UseSessionResult {
   const [transcript, setTranscript] = useState<ClarificationTranscript | null>(null);
   const [streamingContent, setStreamingContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +182,7 @@ export function useSession(): UseSessionResult {
     if (!currentConfig) throw new Error('No session configured');
 
     setError(null);
+    setIsReady(false);
     updateState({ status: 'clarifying' });
     addActivity('system', 'Starting clarification phase');
 
@@ -203,6 +207,7 @@ export function useSession(): UseSessionResult {
           model: currentConfig.specWriterModel,
           messages: initialTranscript.apiMessages,
           stream: true,
+          response_format: { type: 'json_object' },
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -230,16 +235,26 @@ export function useSession(): UseSessionResult {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'token' && data.content) {
                 fullContent += data.content;
-                setStreamingContent(fullContent);
+                // Don't show raw JSON during streaming - just show thinking indicator
+                setStreamingContent('...');
               } else if (data.type === 'complete') {
-                const updatedTranscript = addAssistantMessage(initialTranscript, data.fullContent || fullContent);
+                const rawJson = data.fullContent || fullContent;
+                // Parse the JSON response
+                const parsed = parseClarificationResponse(rawJson);
+                // Store the message (not raw JSON) in transcript
+                const updatedTranscript = addAssistantMessage(initialTranscript, parsed.message);
                 setTranscript(updatedTranscript);
-                addActivity('spec_writer', data.fullContent || fullContent, { model: currentConfig.specWriterModel });
+                setIsReady(parsed.ready);
+                addActivity('spec_writer', parsed.message, { model: currentConfig.specWriterModel });
               } else if (data.type === 'error') {
                 throw new Error(data.error);
               }
-            } catch {
-              // Ignore parse errors
+            } catch (parseErr) {
+              // Only throw if it's from the error event, not JSON parsing during streaming
+              if (parseErr instanceof Error && parseErr.message.startsWith('Invalid JSON')) {
+                throw parseErr;
+              }
+              // Ignore other parse errors during streaming
             }
           }
         }
@@ -284,6 +299,7 @@ export function useSession(): UseSessionResult {
           model: config.specWriterModel,
           messages: withUser.apiMessages,
           stream: true,
+          response_format: { type: 'json_object' },
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -311,16 +327,26 @@ export function useSession(): UseSessionResult {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'token' && data.content) {
                 fullContent += data.content;
-                setStreamingContent(fullContent);
+                // Don't show raw JSON during streaming - just show thinking indicator
+                setStreamingContent('...');
               } else if (data.type === 'complete') {
-                const updatedTranscript = addAssistantMessage(withUser, data.fullContent || fullContent);
+                const rawJson = data.fullContent || fullContent;
+                // Parse the JSON response
+                const parsed = parseClarificationResponse(rawJson);
+                // Store the message (not raw JSON) in transcript
+                const updatedTranscript = addAssistantMessage(withUser, parsed.message);
                 setTranscript(updatedTranscript);
-                addActivity('spec_writer', data.fullContent || fullContent, { model: config.specWriterModel });
+                setIsReady(parsed.ready);
+                addActivity('spec_writer', parsed.message, { model: config.specWriterModel });
               } else if (data.type === 'error') {
                 throw new Error(data.error);
               }
-            } catch {
-              // Ignore parse errors
+            } catch (parseErr) {
+              // Only throw if it's from the error event, not JSON parsing during streaming
+              if (parseErr instanceof Error && parseErr.message.startsWith('Invalid JSON')) {
+                throw parseErr;
+              }
+              // Ignore other parse errors during streaming
             }
           }
         }
@@ -330,9 +356,9 @@ export function useSession(): UseSessionResult {
         addActivity('system', 'Response aborted');
         return;
       }
-      const message = err instanceof Error ? err.message : 'Failed to get response';
-      setError(message);
-      addActivity('error', message);
+      const errMessage = err instanceof Error ? err.message : 'Failed to get response';
+      setError(errMessage);
+      addActivity('error', errMessage);
     } finally {
       setIsStreaming(false);
       setStreamingContent('');
@@ -551,7 +577,7 @@ export function useSession(): UseSessionResult {
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: config.prompts.consultantReview },
+              { role: 'system', content: config.prompts.consultant },
               { role: 'user', content: `Please review this specification:\n\n${currentSpec}` },
             ],
             stream: false,
@@ -695,6 +721,7 @@ export function useSession(): UseSessionResult {
     setTranscript(null);
     setStreamingContent('');
     setIsStreaming(false);
+    setIsReady(false);
     setActivities([]);
     setStartTime(null);
     setError(null);
@@ -707,6 +734,7 @@ export function useSession(): UseSessionResult {
     transcript,
     streamingContent,
     isStreaming,
+    isReady,
     activities,
     startTime,
     createSession,

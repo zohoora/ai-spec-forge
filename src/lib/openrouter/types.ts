@@ -11,6 +11,9 @@ export interface ChatRequest {
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
+  response_format?: {
+    type: 'json_object' | 'text';
+  };
 }
 
 export interface ChatChoice {

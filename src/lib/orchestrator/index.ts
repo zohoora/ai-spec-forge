@@ -32,7 +32,6 @@ import {
   startClarificationStream,
   continueClarification,
   continueClarificationStream,
-  isReadyToDraft,
   formatTranscriptForPrompt,
 } from './clarification';
 import { generateSnapshot, generateSnapshotStream, formatSnapshotWithHeader } from './snapshot';
@@ -330,7 +329,7 @@ export class Orchestrator {
         this.state.clarificationTranscriptPath = getTranscriptPath(this.sessionDir);
         await this.persistState();
 
-        const ready = isReadyToDraft(fullResponse);
+        const ready = chunk.parsedResponse?.ready || false;
 
         this.emit({
           type: 'clarification_response',
@@ -338,7 +337,7 @@ export class Orchestrator {
           data: { isReady: ready },
         });
 
-        yield { type: 'complete', content: fullResponse, isReady: ready };
+        yield { type: 'complete', content: chunk.content, isReady: ready };
       }
     }
   }

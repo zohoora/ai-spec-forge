@@ -18,9 +18,21 @@ Focus on:
 - Scale and performance expectations
 
 Ask only what you need to proceed.
-When you have enough information, output exactly:
-READY TO WRITE SPEC
-on its own line, then add any final clarification notes.`;
+
+IMPORTANT: You must respond in JSON format with this exact structure:
+{
+  "ready": false,
+  "message": "Your question or response to the user"
+}
+
+When you have gathered enough information to write the spec, respond with:
+{
+  "ready": true,
+  "message": "Summary of what you understood",
+  "notes": "Any final notes or observations (optional)"
+}
+
+Always respond with valid JSON. The "message" field contains what the user will see.`;
 
 /**
  * Spec writer prompt for requirements snapshot (section 9.2)

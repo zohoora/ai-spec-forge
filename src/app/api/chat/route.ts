@@ -8,6 +8,9 @@ interface ChatRequest {
   model: string;
   messages: ChatMessage[];
   stream?: boolean;
+  response_format?: {
+    type: 'json_object' | 'text';
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -44,6 +47,7 @@ export async function POST(request: NextRequest) {
       const response = await client.chat({
         model: body.model,
         messages: body.messages,
+        response_format: body.response_format,
       });
 
       return new Response(
@@ -71,6 +75,7 @@ export async function POST(request: NextRequest) {
           for await (const chunk of client.chatStream({
             model: body.model,
             messages: body.messages,
+            response_format: body.response_format,
           })) {
             fullContent += chunk;
             controller.enqueue(

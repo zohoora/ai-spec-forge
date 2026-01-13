@@ -14,14 +14,12 @@ import {
 } from '@/components';
 import { useSession } from '@/hooks';
 import { SessionConfig } from '@/types/config';
-import { isReadyToDraft } from '@/lib/orchestrator/clarification';
 
 type AppPhase = 'config' | 'running' | 'clarifying';
 
 export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [phase, setPhase] = useState<AppPhase>('config');
-  const [isReadyForDraft, setIsReadyForDraft] = useState(false);
 
   const {
     config,
@@ -30,6 +28,7 @@ export default function Home() {
     transcript,
     streamingContent,
     isStreaming,
+    isReady,
     activities,
     startTime,
     createSession,
@@ -61,16 +60,6 @@ export default function Home() {
       localStorage.removeItem('openrouter_api_key');
     }
   };
-
-  // Check if ready to draft when transcript changes
-  useEffect(() => {
-    if (transcript?.displayMessages) {
-      const lastMsg = transcript.displayMessages[transcript.displayMessages.length - 1];
-      if (lastMsg?.role === 'assistant') {
-        setIsReadyForDraft(isReadyToDraft(lastMsg.content));
-      }
-    }
-  }, [transcript]);
 
   // Handle session start
   const handleStart = async (sessionConfig: SessionConfig) => {
@@ -131,7 +120,6 @@ export default function Home() {
   const handleReset = () => {
     reset();
     setPhase('config');
-    setIsReadyForDraft(false);
   };
 
   // Determine what to show based on phase
@@ -158,7 +146,7 @@ export default function Home() {
               transcript={transcript}
               streamingContent={streamingContent}
               isStreaming={isStreaming}
-              isReady={isReadyForDraft}
+              isReady={isReady}
               onSendMessage={handleSendMessage}
               onForceProgress={handleForceProgress}
               onAbort={handleAbort}
